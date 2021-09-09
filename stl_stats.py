@@ -5,10 +5,6 @@ import time
 
 import stl_path
 from trex.stl.api import *
-from goose.goose import GOOSE
-from goose.goose_pdu import AllData, Data, IECGoosePDU
-from pyasn1.codec.ber import encoder
-from pyasn1.type import tag
 from Plotter import Plotter
 
 PGID_TO_NAME = {5: "RX_UDP", 6: "RX_TCP"}
