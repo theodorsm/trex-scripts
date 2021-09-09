@@ -9,61 +9,14 @@ from goose.goose import GOOSE
 from goose.goose_pdu import AllData, Data, IECGoosePDU
 from pyasn1.codec.ber import encoder
 from pyasn1.type import tag
+from Plotter import Plotter
 
-PGID_TO_NAME = {5: "RX_UDP", 6: "RX_TCP", 7: "RX_GOOSE"}
-
-def create_goose_message():
-    g = IECGoosePDU().subtype(
-        implicitTag=tag.Tag(
-            tag.tagClassApplication,
-            tag.tagFormatConstructed,
-            1
-        )
-    )
-    g.setComponentByName('gocbRef', 'PDC02_11_700G_G1CFG/LLN0$GO$GooseDset_BF')
-    g.setComponentByName('timeAllowedtoLive', 2000)
-    g.setComponentByName('datSet', 'PDC02_11_700G_G1CFG/LLN0$Dset_BF')
-    g.setComponentByName('goID', '11_700G_G1_Dset_BF')
-    g.setComponentByName('t', b'\x55\x15\x1b\x9b\x69\x37\x40\x92')
-    g.setComponentByName('stNum', 5)
-    g.setComponentByName('sqNum', 1757)
-    g.setComponentByName('test', False)
-    g.setComponentByName('confRev', 3)
-    g.setComponentByName('ndsCom', False)
-    g.setComponentByName('numDatSetEntries', 6)
-    d = AllData().subtype(
-        implicitTag=tag.Tag(
-            tag.tagClassContext,
-            tag.tagFormatConstructed,
-            11
-        )
-    )
-    d1 = Data()
-    d1.setComponentByName('boolean', False)
-    d2 = Data()
-    d2.setComponentByName('bit-string', "'0000000000000'B")
-    d3 = Data()
-    d3.setComponentByName('utc-time', b'\x55\x15\x14\xc0\xc8\xf5\xc0\x92')
-    d4 = Data()
-    d4.setComponentByName('boolean', False)
-    d5 = Data()
-    d5.setComponentByName('bit-string', "'0000000000000'B")
-    d6 = Data()
-    d6.setComponentByName('utc-time', b'\x55\x15\x14\xaa\x3a\x9f\x80\x92')
-    d.setComponentByPosition(0, d1)
-    d.setComponentByPosition(1, d2)
-    d.setComponentByPosition(2, d3)
-    d.setComponentByPosition(3, d4)
-    d.setComponentByPosition(4, d5)
-    d.setComponentByPosition(5, d6)
-    g.setComponentByName('allData', d)
-    return encoder.encode(g)
+PGID_TO_NAME = {5: "RX_UDP", 6: "RX_TCP"}
 
 
-def save_to_file(name, data):
+def save_to_file(name, data, date):
     try:
         print("Trying to save to file...")
-        date = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M")
         filename = f"results/{name}_{date}.json"
         with open(filename, "w") as out:
             json.dump(data, out)
@@ -108,21 +61,6 @@ def rx_stats(tx_port, rx_port, pps, duration):
             mode=STLTXCont(pps=pps),
         )
 
-        # Should be DotQ1
-        goose_pkt = STLPktBuilder(
-            pkt=Ether()
-            / IP(src="10.0.0.2", dst="10.0.0.3")
-            / GOOSE(appid=int(0x00b1))
-            / create_goose_message()
-        )
-
-        s3 = STLStream(
-            name=PGID_TO_NAME[7],
-            packet=goose_pkt,
-            flow_stats=STLFlowLatencyStats(pg_id=7),
-            mode=STLTXCont(pps=pps),
-        )
-
         # connect to server
         c.connect()
 
@@ -130,7 +68,7 @@ def rx_stats(tx_port, rx_port, pps, duration):
         c.reset(ports=[tx_port, rx_port])
 
         # add both streams to ports
-        c.add_streams([s1, s2, s3], ports=[tx_port])
+        c.add_streams([s1, s2], ports=[tx_port])
 
         print(
             "\nInjecting packets on port {0}, for {1}s. pps = {2}\n".format(
@@ -202,11 +140,19 @@ def stream_iteration(c, stats, pgid, tx_port, rx_port):
     last_max = lat["last_max"]
     hist = lat["histogram"]
 
-    s1 = save_to_file(PGID_TO_NAME[pgid] + "/flow", flow_stats)
-    s2 = save_to_file(PGID_TO_NAME[pgid] + "/lat", lat_stats)
+    date = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M")
+    s1 = save_to_file(PGID_TO_NAME[pgid] + "/flow", flow_stats, date)
+    s2 = save_to_file(PGID_TO_NAME[pgid] + "/lat", lat_stats, date)
     if (s1 or s2) is False:
         print("hit")
         return False
+
+    plotter = Plotter(
+        mean=avg, tot_max=tot_max, tot_min=tot_min, jitter=jitter, histogram=hist
+    )
+    plotter.make_PDF()
+    plotter.make_CDF()
+    plotter.save_plot(f"plots/{PGID_TO_NAME[pgid]}/plot_{date}")
 
     if c.get_warnings():
         print("\n\n*** test had warnings ****\n\n")
