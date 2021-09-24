@@ -2,3 +2,5 @@ scapy
 matplotlib
 numpy
 scipy
+hdrhistogram
+hdr-plot

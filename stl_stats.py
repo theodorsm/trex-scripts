@@ -34,7 +34,7 @@ def rx_stats(tx_port, rx_port, pps, duration):
             pkt=Ether()
             / IP(src="10.0.0.2", dst="10.0.0.3")
             / UDP(dport=12, sport=1025)
-            / "at_least_16_bytes_payload_needed"
+            / ("A" * 400)
         )
         s1 = STLStream(
             name=PGID_TO_NAME[5],
@@ -47,7 +47,7 @@ def rx_stats(tx_port, rx_port, pps, duration):
             pkt=Ether()
             / IP(src="10.0.0.2", dst="10.0.0.3")
             / TCP(dport=80)
-            / "at_least_16_bytes_payload_needed"
+            / ("A" * 400)
         )
 
         s2 = STLStream(
@@ -140,15 +140,14 @@ def stream_iteration(c, stats, pgid, tx_port, rx_port):
     s1 = save_to_file(PGID_TO_NAME[pgid] + "/flow", flow_stats, date)
     s2 = save_to_file(PGID_TO_NAME[pgid] + "/lat", lat_stats, date)
     if (s1 or s2) is False:
-        print("hit")
         return False
 
-    plotter = Plotter(
-        mean=avg, tot_max=tot_max, tot_min=tot_min, jitter=jitter, histogram=hist
-    )
-    plotter.make_PDF()
-    plotter.make_CDF()
-    plotter.save_plot(f"plots/{PGID_TO_NAME[pgid]}/plot_{date}")
+#    plotter = Plotter(
+#        mean=avg, tot_max=tot_max, tot_min=tot_min, jitter=jitter, histogram=hist
+#    )
+#    plotter.make_PDF()
+#    plotter.make_CDF()
+#    plotter.save_plot(f"plots/{PGID_TO_NAME[pgid]}/plot_{date}")
 
     if c.get_warnings():
         print("\n\n*** test had warnings ****\n\n")
@@ -189,4 +188,4 @@ def stream_iteration(c, stats, pgid, tx_port, rx_port):
     return True
 
 
-rx_stats(tx_port=0, rx_port=1, pps=100000, duration=10)
+rx_stats(tx_port=0, rx_port=1, pps=100000, duration=120)
