@@ -7,7 +7,7 @@ import stl_path
 from trex.stl.api import *
 from Plotter import Plotter
 
-PGID_TO_NAME = {5: "RX_UDP", 6: "RX_TCP"}
+PGID_TO_NAME = {1: "UDP_LOW", 2: "UDP_HIGH", 3: "TCP_HIGH", 4: "MULTIPLE_TCP", 5: "MULTIPLE_UDP", 6: "UDP_BURST"}
 
 
 def save_to_file(name, data, date):
@@ -23,39 +23,11 @@ def save_to_file(name, data, date):
     return True
 
 
-def rx_stats(tx_port, rx_port, pps, duration):
-
+def rx_stats(tx_port, rx_port, duration, streams: list):
     # create client
     c = STLClient()
     passed = True
-
     try:
-        pkt = STLPktBuilder(
-            pkt=Ether()
-            / IP(src="10.0.0.2", dst="10.0.0.3")
-            / UDP(dport=12, sport=1025)
-            / ("A" * 400)
-        )
-        s1 = STLStream(
-            name=PGID_TO_NAME[5],
-            packet=pkt,
-            flow_stats=STLFlowLatencyStats(pg_id=5),
-            mode=STLTXCont(pps=pps),
-        )
-
-        tcp_pkt = STLPktBuilder(
-            pkt=Ether()
-            / IP(src="10.0.0.2", dst="10.0.0.3")
-            / TCP(dport=80)
-            / ("A" * 400)
-        )
-
-        s2 = STLStream(
-            name=PGID_TO_NAME[6],
-            packet=tcp_pkt,
-            flow_stats=STLFlowLatencyStats(pg_id=6),
-            mode=STLTXCont(pps=pps),
-        )
 
         # connect to server
         c.connect()
@@ -63,12 +35,12 @@ def rx_stats(tx_port, rx_port, pps, duration):
         # prepare our ports
         c.reset(ports=[tx_port, rx_port])
 
-        # add both streams to ports
-        c.add_streams([s1, s2], ports=[tx_port])
+        # add streams to ports
+        c.add_streams(streams, ports=[tx_port])
 
         print(
-            "\nInjecting packets on port {0}, for {1}s. pps = {2}\n".format(
-                tx_port, duration, pps
+            "\ninjecting packets on port {0}, for {1}s. streams = {2}\n".format(
+                tx_port, duration, list(map(lambda stream: stream.name, streams))
             )
         )
 
@@ -82,9 +54,9 @@ def rx_stats(tx_port, rx_port, pps, duration):
         c.disconnect()
 
     if passed:
-        print("\nTest passed :-)\n")
+        print("\ntest passed :-)\n")
     else:
-        print("\nTest failed :-(\n")
+        print("\ntest failed :-(\n")
 
 
 # RX one iteration
@@ -142,13 +114,6 @@ def stream_iteration(c, stats, pgid, tx_port, rx_port):
     if (s1 or s2) is False:
         return False
 
-#    plotter = Plotter(
-#        mean=avg, tot_max=tot_max, tot_min=tot_min, jitter=jitter, histogram=hist
-#    )
-#    plotter.make_PDF()
-#    plotter.make_CDF()
-#    plotter.save_plot(f"plots/{PGID_TO_NAME[pgid]}/plot_{date}")
-
     if c.get_warnings():
         print("\n\n*** test had warnings ****\n\n")
         for w in c.get_warnings():
@@ -187,5 +152,71 @@ def stream_iteration(c, stats, pgid, tx_port, rx_port):
         )
     return True
 
+if __name__ == "__main__":
 
-rx_stats(tx_port=0, rx_port=1, pps=100000, duration=120)
+    # 1Kpps
+    pps_low = 1000
+    # 1Mpps
+    pps_high = 1000000
+
+    duration = 20
+
+    udp_pkt = STLPktBuilder(
+        pkt=Ether()
+        / IP(src="10.0.0.2", dst="10.0.0.3")
+        / UDP(dport=12, sport=1025)
+        / Raw(RandString(size=400))
+    )
+
+    tcp_pkt = STLPktBuilder(
+        pkt=Ether()
+        / IP(src="10.0.0.2", dst="10.0.0.3")
+        / TCP(dport=80)
+        / Raw(RandString(size=400))
+    )
+
+    UDP_LOW = STLStream(
+        name=PGID_TO_NAME[1],
+        packet=udp_pkt,
+        flow_stats=STLFlowLatencyStats(pg_id=1),
+        mode=STLTXCont(pps=pps_low),
+    )
+
+    UDP_HIGH = STLStream(
+        name=PGID_TO_NAME[2],
+        packet=udp_pkt,
+        flow_stats=STLFlowLatencyStats(pg_id=2),
+        mode=STLTXCont(pps=pps_high),
+    )
+
+    TCP_HIGH = STLStream(
+        name=PGID_TO_NAME[3],
+        packet=tcp_pkt,
+        flow_stats=STLFlowLatencyStats(pg_id=3),
+        mode=STLTXCont(pps=pps_high),
+    )
+
+    MULTIPLE_TCP = STLStream(
+        name=PGID_TO_NAME[4],
+        packet=tcp_pkt,
+        flow_stats=STLFlowLatencyStats(pg_id=4),
+        mode=STLTXCont(pps=pps_high),
+    )
+
+    MULTIPLE_TCP = STLStream(
+        name=PGID_TO_NAME[5],
+        packet=udp_pkt,
+        flow_stats=STLFlowLatencyStats(pg_id=5),
+        mode=STLTXCont(pps=pps_high),
+    )
+
+    BURST_UDP = STLStream(
+        name=PGID_TO_NAME[6],
+        packet=udp_pkt,
+        flow_stats=STLFlowLatencyStats(pg_id=6),
+        # Burst of 1 sec interval @ pps_high, number of burst = duration.
+        mode=STLTXMultiBurst(pps = pps_high, pkts_per_burst = pps_high, count = duration, ibg = 1000000.0)
+    )
+
+
+    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[BURST_UDP])
