@@ -7,7 +7,7 @@ import stl_path
 from trex.stl.api import *
 from Plotter import Plotter
 
-PGID_TO_NAME = {1: "UDP_LOW", 2: "UDP_HIGH", 3: "TCP_HIGH", 4: "MULTIPLE_TCP", 5: "MULTIPLE_UDP", 6: "UDP_BURST"}
+PGID_TO_NAME = {1: "UDP_LOW", 2: "UDP_HIGH", 3: "TCP_HIGH", 4: "MULTIPLE_TCP", 5: "MULTIPLE_UDP", 6: "UDP_BURST", 7: "UDP_SMALL"}
 
 
 def save_to_file(name, data, date):
@@ -154,25 +154,23 @@ def stream_iteration(c, stats, pgid, tx_port, rx_port):
 
 if __name__ == "__main__":
 
-    # 1Kpps
+    # 1Kpps -> 500 * 8 * 1000pps = 4Mbit/s
     pps_low = 1000
-    # 1Mpps
-    pps_high = 1000000
+    # 100Kpps -> 500 * 8 * 100Kpps = 400Mbit/s
+    pps_high = 100000
 
-    duration = 20
+    duration = 120
+
+    pkt=Ether()/IP(src="10.0.0.2", dst="10.0.0.3")/UDP(dport=12, sport=1025)
 
     udp_pkt = STLPktBuilder(
-        pkt=Ether()
-        / IP(src="10.0.0.2", dst="10.0.0.3")
-        / UDP(dport=12, sport=1025)
-        / Raw(RandString(size=400))
+        pkt=pkt/Raw(RandString(size=500 - len(pkt)))
     )
 
+    pkt=Ether()/IP(src="10.0.0.2", dst="10.0.0.3")/TCP(dport=80)
+
     tcp_pkt = STLPktBuilder(
-        pkt=Ether()
-        / IP(src="10.0.0.2", dst="10.0.0.3")
-        / TCP(dport=80)
-        / Raw(RandString(size=400))
+        pkt=pkt/Raw(RandString(size=500 - len(pkt)))
     )
 
     UDP_LOW = STLStream(
@@ -203,7 +201,7 @@ if __name__ == "__main__":
         mode=STLTXCont(pps=pps_high),
     )
 
-    MULTIPLE_TCP = STLStream(
+    MULTIPLE_UDP = STLStream(
         name=PGID_TO_NAME[5],
         packet=udp_pkt,
         flow_stats=STLFlowLatencyStats(pg_id=5),
@@ -218,5 +216,22 @@ if __name__ == "__main__":
         mode=STLTXMultiBurst(pps = pps_high, pkts_per_burst = pps_high, count = duration, ibg = 1000000.0)
     )
 
+    udp_pkt = STLPktBuilder(
+        pkt=pkt/Raw(RandString(size=100 - len(pkt)))
+    )
 
+    UDP_SMALL = STLStream(
+        name=PGID_TO_NAME[6],
+        packet=udp_pkt,
+        flow_stats=STLFlowLatencyStats(pg_id=7),
+        # 500Kpps -> 400Mbit/s
+        mode=STLTXCont(pps=pps_high * 5),
+    )
+
+
+#    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_LOW])
+#    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_HIGH])
+#    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[TCP_HIGH])
+#    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[MULTIPLE_UDP, MULTIPLE_TCP])
     rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[BURST_UDP])
+    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_SMALL])
