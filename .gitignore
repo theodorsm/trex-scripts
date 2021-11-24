@@ -4,3 +4,4 @@ venv
 *.png
 *.txt
 *.gz
+*tar*
