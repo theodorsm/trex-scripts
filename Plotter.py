@@ -72,6 +72,7 @@ class Plotter:
         if self.CMP:
             for traffic in self.CONST_TRAFFIC:
                 outs = ""
+                jitters = []
                 for dut in self.hdr_histograms.keys():
                     out = "out/{}/{}_{}.txt".format(
                         dut.strip("."), dut.strip("."), traffic
@@ -80,32 +81,38 @@ class Plotter:
                     self.hdr_histograms[dut][traffic].output_percentile_distribution(
                         open(out, "wb+"), 1000
                     )
-                print(outs)
+                    jitters.append(self.jitters[dut][traffic])
+                print("Wrote: ", outs)
 
                 os.system(
-                    "hdr-plot --output out/CMP_{}.png --title '{}' {}".format(
-                        f"{traffic}_{self.CMP_NAME}", traffic, outs
+                    "hdr-plot --output out/CMP_{}.png --title '{}' --jitters {} {} ".format(
+                        f"{traffic}_{self.CMP_NAME}",
+                        traffic,
+                        ",".join((map(str, jitters))),
+                        outs,
                     )
                 )
 
         hdrh_files = []
+        jitters = []
         for dut in self.hdr_histograms.keys():
             histograms = self.hdr_histograms[dut]
-            print(histograms)
             for traffic_type in histograms.keys():
                 out = "out/{}/{}.txt".format(dut, traffic_type)
-                print(out)
+                print("Wrote: ", out)
                 hdrh_files.append(out)
                 histograms[traffic_type].output_percentile_distribution(
                     open(out, "wb+"), 1000
                 )
+                jitters.append(self.jitters[dut][traffic_type])
 
-        self.plot_multiple(hdrh_files)
+        self.plot_multiple(hdrh_files, jitters)
 
-    def plot_multiple(self, hdrh_files):
-        for file in hdrh_files:
-            os.system(
-                "hdr-plot --output {}.png --title '{}' {}".format(
-                    file.strip(".txt"), file.strip(".txt"), file
-                )
+    def plot_multiple(self, hdrh_files, jitters):
+        for i in range(len(hdrh_files)):
+            file = hdrh_files[i]
+            jitter = jitters[i]
+            cmd = "hdr-plot --output {}.png --title '{}' --jitters {} {} ".format(
+                file.strip(".txt"), file.strip(".txt"), jitter, file,
             )
+            os.system(cmd)
