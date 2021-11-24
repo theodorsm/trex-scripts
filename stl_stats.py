@@ -145,10 +145,7 @@ def stream_iteration(c, stats, pgid, tx_port, rx_port):
         else:
             range_end = range_start + pow(10, (len(str(range_start)) - 1))
         val = hist[sample]
-        print(
-            "    Packets with latency between {0} and {1}:{2} ".format(
-                range_start, range_end, val
-            )
+        print( "    Packets with latency between {0} and {1}:{2} ".format( range_start, range_end, val)
         )
     return True
 
@@ -221,7 +218,7 @@ if __name__ == "__main__":
     )
 
     UDP_SMALL = STLStream(
-        name=PGID_TO_NAME[6],
+        name=PGID_TO_NAME[7],
         packet=udp_pkt,
         flow_stats=STLFlowLatencyStats(pg_id=7),
         # 500Kpps -> 400Mbit/s
@@ -229,9 +226,10 @@ if __name__ == "__main__":
     )
 
 
-#    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_LOW])
-#    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_HIGH])
-#    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[TCP_HIGH])
-#    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[MULTIPLE_UDP, MULTIPLE_TCP])
+for i in range(4):
+    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_LOW])
+    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_HIGH])
+    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[TCP_HIGH])
+    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[MULTIPLE_UDP, MULTIPLE_TCP])
     rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[BURST_UDP])
     rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_SMALL])
