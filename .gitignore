@@ -2,3 +2,5 @@ __pycache__
 venv
 *.json
 *.png
+*.txt
+*.gz
