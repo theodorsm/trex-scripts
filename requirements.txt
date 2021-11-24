@@ -3,4 +3,4 @@ matplotlib
 numpy
 scipy
 hdrhistogram
-hdr-plot
+git+git://github.com/theodorsm/hdr-plot.git@master
