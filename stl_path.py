@@ -1,14 +1,14 @@
 import sys, os
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
-load_dotenv()
+config = dotenv_values(".env")
 
 cur_dir = os.path.dirname(__file__)
 
-trex_path = f"{os.getenv('TREX_LOCATION')}/{os.getenv('TREX_VERSION')}"
+trex_path = f"{config['TREX_LOCATION']}/{config['TREX_VERSION']}"
 interactive = os.path.abspath(f"{trex_path}/automation/trex_control_plane/interactive")
 
-sys.path.insert(0, os.path.abspath(trex_path))
+sys.path.insert(0, os.path.abspath(interactive))
 
 STL_PROFILES_PATH = os.path.join(f"{trex_path}/stl")
 EXT_LIBS_PATH = os.path.abspath(f"{trex_path}/external_libs")

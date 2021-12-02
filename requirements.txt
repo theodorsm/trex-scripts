@@ -4,3 +4,4 @@ numpy
 scipy
 hdrhistogram
 git+git://github.com/theodorsm/hdr-plot.git@master
+python-dotenv
