@@ -7,7 +7,25 @@ import stl_path
 from trex.stl.api import *
 from Plotter import Plotter
 
-PGID_TO_NAME = {1: "UDP_LOW", 2: "UDP_HIGH", 3: "TCP_HIGH", 4: "MULTIPLE_TCP", 5: "MULTIPLE_UDP", 6: "UDP_BURST", 7: "UDP_SMALL"}
+PGID_TO_NAME = {
+    1: "UDP_LOW",
+    2: "UDP_HIGH",
+    3: "TCP_HIGH",
+    4: "MULTIPLE_TCP",
+    5: "MULTIPLE_UDP",
+    6: "UDP_BURST",
+    7: "UDP_SMALL",
+}
+
+# 1Kpps -> 500 * 8 * 1000pps = 4Mbit/s
+PPS_LOW = 1000
+# 100Kpps -> 500 * 8 * 100Kpps = 400Mbit/s
+PPS_HIGH = 100000
+
+DURATION = 120
+
+# Number of runs
+RUNS = 4
 
 
 def save_to_file(name, data, date):
@@ -145,64 +163,57 @@ def stream_iteration(c, stats, pgid, tx_port, rx_port):
         else:
             range_end = range_start + pow(10, (len(str(range_start)) - 1))
         val = hist[sample]
-        print( "    Packets with latency between {0} and {1}:{2} ".format( range_start, range_end, val)
+        print(
+            "    Packets with latency between {0} and {1}:{2} ".format(
+                range_start, range_end, val
+            )
         )
     return True
 
+
 if __name__ == "__main__":
 
-    # 1Kpps -> 500 * 8 * 1000pps = 4Mbit/s
-    pps_low = 1000
-    # 100Kpps -> 500 * 8 * 100Kpps = 400Mbit/s
-    pps_high = 100000
+    pkt = Ether() / IP(src="10.0.0.2", dst="10.0.0.3") / UDP(dport=12, sport=1025)
 
-    duration = 120
+    udp_pkt = STLPktBuilder(pkt=pkt / Raw(RandString(size=500 - len(pkt))))
 
-    pkt=Ether()/IP(src="10.0.0.2", dst="10.0.0.3")/UDP(dport=12, sport=1025)
+    pkt = Ether() / IP(src="10.0.0.2", dst="10.0.0.3") / TCP(dport=80)
 
-    udp_pkt = STLPktBuilder(
-        pkt=pkt/Raw(RandString(size=500 - len(pkt)))
-    )
-
-    pkt=Ether()/IP(src="10.0.0.2", dst="10.0.0.3")/TCP(dport=80)
-
-    tcp_pkt = STLPktBuilder(
-        pkt=pkt/Raw(RandString(size=500 - len(pkt)))
-    )
+    tcp_pkt = STLPktBuilder(pkt=pkt / Raw(RandString(size=500 - len(pkt))))
 
     UDP_LOW = STLStream(
         name=PGID_TO_NAME[1],
         packet=udp_pkt,
         flow_stats=STLFlowLatencyStats(pg_id=1),
-        mode=STLTXCont(pps=pps_low),
+        mode=STLTXCont(pps=PPS_LOW),
     )
 
     UDP_HIGH = STLStream(
         name=PGID_TO_NAME[2],
         packet=udp_pkt,
         flow_stats=STLFlowLatencyStats(pg_id=2),
-        mode=STLTXCont(pps=pps_high),
+        mode=STLTXCont(pps=PPS_HIGH),
     )
 
     TCP_HIGH = STLStream(
         name=PGID_TO_NAME[3],
         packet=tcp_pkt,
         flow_stats=STLFlowLatencyStats(pg_id=3),
-        mode=STLTXCont(pps=pps_high),
+        mode=STLTXCont(pps=PPS_HIGH),
     )
 
     MULTIPLE_TCP = STLStream(
         name=PGID_TO_NAME[4],
         packet=tcp_pkt,
         flow_stats=STLFlowLatencyStats(pg_id=4),
-        mode=STLTXCont(pps=pps_high),
+        mode=STLTXCont(pps=PPS_HIGH),
     )
 
     MULTIPLE_UDP = STLStream(
         name=PGID_TO_NAME[5],
         packet=udp_pkt,
         flow_stats=STLFlowLatencyStats(pg_id=5),
-        mode=STLTXCont(pps=pps_high),
+        mode=STLTXCont(pps=PPS_HIGH),
     )
 
     BURST_UDP = STLStream(
@@ -210,26 +221,30 @@ if __name__ == "__main__":
         packet=udp_pkt,
         flow_stats=STLFlowLatencyStats(pg_id=6),
         # Burst of 1 sec interval @ pps_high, number of burst = duration.
-        mode=STLTXMultiBurst(pps = pps_high, pkts_per_burst = pps_high, count = duration, ibg = 1000000.0)
+        mode=STLTXMultiBurst(
+            pps=PPS_HIGH, pkts_per_burst=PPS_HIGH, count=DURATION, ibg=1000000.0
+        ),
     )
 
-    udp_pkt = STLPktBuilder(
-        pkt=pkt/Raw(RandString(size=100 - len(pkt)))
-    )
+    udp_pkt = STLPktBuilder(pkt=pkt / Raw(RandString(size=100 - len(pkt))))
 
     UDP_SMALL = STLStream(
         name=PGID_TO_NAME[7],
         packet=udp_pkt,
         flow_stats=STLFlowLatencyStats(pg_id=7),
         # 500Kpps -> 400Mbit/s
-        mode=STLTXCont(pps=pps_high * 5),
+        mode=STLTXCont(pps=PPS_HIGH * 5),
     )
 
-
-for i in range(4):
-    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_LOW])
-    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_HIGH])
-    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[TCP_HIGH])
-    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[MULTIPLE_UDP, MULTIPLE_TCP])
-    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[BURST_UDP])
-    rx_stats(tx_port=0, rx_port=1, duration=duration, streams=[UDP_SMALL])
+    for i in range(RUNS):
+        rx_stats(tx_port=0, rx_port=1, duration=DURATION, streams=[UDP_LOW])
+        rx_stats(tx_port=0, rx_port=1, duration=DURATION, streams=[UDP_HIGH])
+        rx_stats(tx_port=0, rx_port=1, duration=DURATION, streams=[TCP_HIGH])
+        rx_stats(
+            tx_port=0,
+            rx_port=1,
+            duration=DURATION,
+            streams=[MULTIPLE_UDP, MULTIPLE_TCP],
+        )
+        rx_stats(tx_port=0, rx_port=1, duration=DURATION, streams=[BURST_UDP])
+        rx_stats(tx_port=0, rx_port=1, duration=DURATION, streams=[UDP_SMALL])
