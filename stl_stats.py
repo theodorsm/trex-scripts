@@ -24,14 +24,15 @@ PPS_HIGH = 100000
 
 DURATION = 120
 
-# Number of runs
 RUNS = 4
+
+DUT = "dpdk"
 
 
 def save_to_file(name, data, date):
     try:
         print("Trying to save to file...")
-        filename = f"results/{name}_{date}.json"
+        filename = f"results/{DUT}/{name}_{date}.json"
         with open(filename, "w") as out:
             json.dump(data, out)
     except Exception as e:

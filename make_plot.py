@@ -85,10 +85,10 @@ def main():
         "UDP_SMALL",
     ]
     # CONST_DUT = ["switch", "stock", "dpdk", "stock-load", "dpdk-load"]
-    CONST_DUT = ["switch", "stock"]
-    CMP_NAME = "TEST"
+    CONST_DUT = ["switch", "stock", "rt-kernel", "dpdk", "rt-kernel-dpdk"]
+    CMP_NAME = "OVERLOAD"
 
-    p = Plotter(files, CONST_TRAFFIC, CONST_DUT, False, CMP_NAME=CMP_NAME)
+    p = Plotter(files, CONST_TRAFFIC, CONST_DUT, CMP=True, CMP_NAME=CMP_NAME)
     p.do_plot()
 
 
