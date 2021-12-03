@@ -4,6 +4,8 @@ For various applications like tactile internet, gaming, RTC and critical infrast
 
 This guide is for setting up the following topology with two separate computers:
 ```
+FIGURE 1.
+
 PGEN (packet generator)         DUT (Device Under Test)
  .-----------.                      .-----------.
  | .-------. |                      | .-------. |
@@ -77,19 +79,22 @@ sudo ./dpdk_nic_bind.py -b uio_pci_generic 01:00.0 01:00.1 # replace these two p
 
 ### Running
 
-After completing the steps above to setup the packet generator and one of the DUTs below (either stock or DPDK) you can run can clone this repo and follow the guide in [README_SCRIPTS.md](https://github.com/theodorsm/trex-scripts/blob/main/README_SCRIPTS.md)
-On the packet generator:
+After completing the steps above to setup the packet generator and one of the DUTs below (either stock or DPDK) you can clone this repo and follow the guide in [README_SCRIPTS.md](https://github.com/theodorsm/trex-scripts/blob/main/README_SCRIPTS.md).
+
+Clone this repo on the packet generator:
 
 ```bash
 git clone https://github.com/theodorsm/trex-scripts.git
 cd trex-scripts
 ```
 
-Follow the README.md included in the repository for running the benchmark and plotting the results.
-
 ## DUT
 
-For the DUTs both a stock Linux bridge and DPDK forwarding is configured.
+To be able to use the benchmarking tool, you will have a system that is configured with a bridge to forward packets between port0 and port1 (see figure 1).
+
+In this guide two ways of configuring the DUT is presented; stock and with DPDK.
+
+**Follow ONE of configurations below (1. or 2.)**
 
 ### Tools and packages
 
@@ -99,7 +104,7 @@ Install:
 sudo pacman -S netplan
 ```
 
-### Stock DUT
+### 1. stock DUT
 
 Setup bridging with netplan:
 
@@ -132,8 +137,9 @@ echo net.ipv4.ip_forward=1 > /etc/sysctl.conf
 sysctl -p /etc/sysctl.conf
 ```
 
-The following shell script can be modified to setup bridging after a reboot:
+We have to manually create the arp table:
 
+*Modify this script, and run it after each reboot of the system*
 ```bash
 #!/bin/bash
 
@@ -147,7 +153,7 @@ sudo arp -s 10.0.0.3 <PORTB_MAC> -i br0
 sudo iptables -A FORWARD -i br0 -o br0 -j ACCEPT
 ```
 
-### DPDK DUT
+### 2. DPDK DUT
 
 Install DPDK by following the [official documentation](https://doc.dpdk.org/guides/linux_gsg/sys_reqs.html).
 *v21.08 was used to create this guide*
