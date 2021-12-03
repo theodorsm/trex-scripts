@@ -2,7 +2,7 @@
 
 For various applications like tactile internet, gaming, RTC and critical infrastructure, low and consistent latency and jitter is required in the network. To be able to ensure equipment can deliver the performance required, benchmarks has to be done. Usually expensive hardware traffic generators are used to take these measurements. On the software side, we have programs like iperf that is commonly used to get some idea of the network performance. The problem with this way of benchmarking is that is way too expensive to afford good and reliable hardware equipment, and the software solution is not accurate enough for the precise task at hand. In this guide we present a software setup that bridges the gap between a cheap (and open source) software benchmarking setup on general hardware and a dedicated hardware packet generator.
 
-This guide is for setting up the following topology:
+This guide is for setting up the following topology with two separate computers:
 ```
 PGEN (packet generator)         DUT (Device Under Test)
  .-----------.                      .-----------.
@@ -31,9 +31,10 @@ For installing Arch follow the [wiki guide](https://wiki.archlinux.org/index.php
 
 Install:
 
-- python-pip
-- base-devel
-- git
+```bash
+sudo pacman -S  python-pip base-devel git
+
+```
 
 ## PGEN:
 
@@ -94,8 +95,9 @@ For the DUTs both a stock Linux bridge and DPDK forwarding is configured.
 
 Install:
 
-- netplan
-- systemd-networkd
+```bash
+sudo pacman -S netplan
+```
 
 ### Stock DUT
 
