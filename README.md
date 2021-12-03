@@ -1,157 +1,171 @@
-# trex-scripts
+# Setup guide
 
-Scripts for TRex Python API and a HDR histogram latency plotter with jitter.
+For various applications like tactile internet, gaming, RTC and critical infrastructure, low and consistent latency and jitter is required in the network. To be able to ensure equipment can deliver the performance required, benchmarks has to be done. Usually expensive hardware traffic generators are used to take these measurements. On the software side, we have programs like iperf that is commonly used to get some idea of the network performance. The problem with this way of benchmarking is that is way too expensive to afford good and reliable hardware equipment, and the software solution is not accurate enough for the precise task at hand. In this guide we present a software setup that bridges the gap between a cheap (and open source) software benchmarking setup on general hardware and a dedicated hardware packet generator.
 
-The `stl_stats.py` script is used to take latency and jitter measurements.
+This guide is for setting up the following topology:
+```
+PGEN (packet generator)         DUT (Device Under Test)
+ .-----------.                      .-----------.
+ | .-------. |                      | .-------. |
+ | | portA | | -------------------> | | port0 | |
+ | | portB | | <------------------- | | port1 | |
+ | '-------' |                      | '-------' |
+ |           |                      |    nic    |
+ '-----------'                      '-----------'
+```
 
-The `Plotter.py` class is used to parse .json results from the measurements and plot them in a HDR histogram with jitter.
+The benchmark-setup in this guide is beneficial for network engineers or researchers that want to compare latency and jitter for different device configurations with good accuracy and reliability. DPDK and Cisco TRex (runs on DPDK) are the technologies that makes this setup more reliable by bypassing the Linux kernel when taking measurements.
 
-## Traffic
+## OS
 
-The following 6 traffic-streams is included:
+Any Linux distribution could be used, but in this guide is written with Arch users in mind.
+Ideally you should have a completely clean system, but it is not required.
 
-- UDP_LOW: UDP size = 500, @ 1Kpps, 4Mbps
-- UDP_HIGH: UDP size = 500, @ 100Kpps, 400Mbps
-- TCP_HIGH: TCP size = 500, @ 100Kpps, 400Mbps
-- Running MULTIPLE_UDP and MULTIPLE_TCP simultaneously, total of 800Mbps:
-    - MULTIPLE_UDP: UDP size = 500, @ 100Kpps
-    - MULTIPLE_TCP: TCP size = 500, @ 100Kpps
-- BURST_UDP: UDP size = 500 @ 100Kpps with 1 second intervals.
-- UDP_SMALL: UDP size = 100 @ 500Kpps, 400Mbps
+For installing Arch follow the [wiki guide](https://wiki.archlinux.org/index.php/installation_guide).
 
+*linux-5.11.6.arch1-1 is used in this guide*
 
-## Running
+## Packet generator:
 
-### Getting started
+### Tools and packages
 
-#### Install TRex
+Install:
 
-Follow the [TRex install guide](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_download_and_installation).
+- python-pip
+- base-devel
+- git
 
-#### Environment
+## PGEN:
 
-Firstly you need to create a configuration file for TRex in `etc/trex_cfg.yaml`:
+### TRex
+
+Follow this [download guide](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_obtaining_the_trex_package) from TRex.
+
+*This guide is based on TRex v2.88 (with version DPDK v21.02)*
+
+### Hot-fix
+
+With Python 3.9.1 a problem with scapy occurred, the following hot-fix worked (ideally the correct library should be installed, and not just symlinking):
+
+```bash
+sudo ln -s -f /usr/lib/libc.a /usr/lib/liblibc.a
+```
+
+### Setup NIC with DPDK supported drivers
+
+Identify the ports:
+
+```bash
+cd /opt/trex/v2.XX/
+sudo ./dpdk_setup_ports.py -s
+
+```
+
+```bash
+sudo modprobe uio
+sudo insmod ko/src/igb_uio.ko
+sudo ./dpdk_nic_bind.py -b igb_uio 01:00.0 01:00.1 # replace these two port-IDs to yours
+```
+
+or
+
+```bash
+sudo modprobe uio_pci_generic
+sudo ./dpdk_nic_bind.py -b uio_pci_generic 01:00.0 01:00.1 # replace these two port-IDs to yours
+```
+
+### Running
+
+After completing the steps above to setup the packet generator and one of the DUTs below (either stock or DPDK) you can run can clone this repo and follow the guide in [README_SCRIPTS.md](https://github.com/theodorsm/trex-scripts/blob/main/README_SCRIPTS.md)
+On the packet generator:
+
+```bash
+git clone https://github.com/theodorsm/trex-scripts.git
+cd trex-scripts
+```
+
+Follow the README.md included in the repository for running the benchmark and plotting the results.
+
+## DUT
+
+For the DUTs both a stock Linux bridge and DPDK forwarding is configured.
+
+### Tools and packages
+
+Install:
+
+- netplan
+- systemd-networkd
+
+### Stock DUT
+
+Setup bridging with netplan:
 
 ```yaml
-- version: 2
-  port_limit: 2
-  # ids for your NICs. Can be found by ./dpdk_nic_bind.py -s
-  interfaces: ['01:00.0', '01:00.1']
-  port_info:
-    # MAC for NIC
-    - src_mac: '<YOUR NIC1>'
-      dest_mac: '<YOUR NIC2>'
-    - src_mac: '<YOUR NIC2>'
-      dest_mac: '<YOUR NIC1>'
+#/etc/netplan/01-netcfg.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp1s0f0:
+      dhcp4: no
+    enp1s0f1:
+      dhcp4: no
+    eno1:
+      dhcp4: yes
+      nameservers:
+        addresses: [8.8.8.8, 8.8.4.4]
+
+  bridges:
+    br0:
+      interfaces: [enp1s0f0, enp1s0f1] # Replace with your interfaces
+      addresses: [10.0.0.1/24]
 ```
 
-Secondly you need to update the `.env` file to correspond to your system.
 
-Then you can install the requirements and activate the virtual environment:
-```bash
-# Initial setup (once)
-python -m venv venv
-pip install -r requirements.txt
-
-# Activate (everytime)
-source venv/bin/activate
-```
-
-### Tweak parameters and run
-
-In `stl_stats.py` you can adjust the following parameters to your needs:
-
-- PPS_LOW (default=1000): Packets per second for UDP_LOW
-- PPS_HIGH (default=100000): Packets per second for UDP_HIGH, TCP_HIGH, MULTIPLE and BURST_UDP
-- DURATION (default=120): How long each latency measurement should last.
-- RUNS (default=4): How many runs of each measurements.
-- DUT: The name of device under test. (used to store results)
-
-To run the script:
+Enable forwarding in sysctl:
 
 ```bash
-# in one terminal, leave running:
-sudo ./t-rex-64 -i --hdrh
-# seperate terminal (trex-scripts)
-python stl_stats.py
+echo net.ipv4.ip_forward=1 > /etc/sysctl.conf
+sysctl -p /etc/sysctl.conf
 ```
 
-To verify and troubleshoot the port setup:
+The following shell script can be modified to setup bridging after a reboot:
 
 ```bash
-# with server running
-./trex-console
+#!/bin/bash
 
-trex> portattr -a
+sudo netplan apply
+sleep 5
+# The IP has to be consistent with the TRex API script
+sudo arp -s 10.0.0.2 <PORTA_MAC> -i <YOUR_INTERFACE0>
+sudo arp -s 10.0.0.3 <PORTB_MAC> -i <YOUR_INTERFACE1>
+sudo arp -s 10.0.0.2 <PORTA_MAC> -i br0
+sudo arp -s 10.0.0.3 <PORTB_MAC> -i br0
+sudo iptables -A FORWARD -i br0 -o br0 -j ACCEPT
 ```
 
-## Plotting
+### DPDK DUT
 
-### File structure
+Install DPDK by following the [official documentation](https://doc.dpdk.org/guides/linux_gsg/sys_reqs.html).
+*v21.08 was used to create this guide*
 
-### Results
-
-The measurements results are stored in json files in the following file structure:
-
-```
-results
-├── dpdk
-│   ├── MULTIPLE_TCP
-│   │   ├─ XXXXXXXXXX.json
-│   │   ├─ .........
-│   ├── MULTIPLE_UDP
-│   ├── TCP_HIGH
-│   ├── UDP_BURST
-│   ├── UDP_HIGH
-│   ├── UDP_LOW
-│   └── UDP_SMALL
-├── dpdk-load
-...
-├── rt-kernel
-....
-├── rt-kernel-dpdk
-....
-├── stock
-....
-├── stock-load
-....
-└── switch
-....
-```
-
-### Out
-
-The plots made is saved in out by DUT:
-*You will have to create each DUT directory before the plots are made.*
-
-```
-out
-├── dpdk
-├── dpdk-load
-├── nonload
-├── rt-kernel
-├── rt-kernel-dpdk
-├── stock
-├── stock-load
-├── switch
-├── switch_stock
-└── CMP_XXXXXX.png
-
-```
-
-### Make plots
-
-In `make_plot.py` you can add all the location of all the result files you want to make plots of in `files`.
-
-You have to add all the DUTs you want to plot in `CONST_DUT`.
-
-`CMP_NAME` is used as a prefix to the comparison plots when the boolean `CMP` is set to True.
-
-Make plots:
+Not setting up the hugepages correctly will result in bad performance, so set the hugepage to an appropriate size like this:
 
 ```bash
-python ./make_plot.py
+cd <DPDK-LOCATION>/dpdk-XX.XX/
+sudo ./usertools/dpdk-hugepages.py -p 1G --setup 2G
 ```
 
-Example comparison plot:
-![comparison plot](./cmp.png)
+Next, supported DPDK drivers must be bound to the NICs:
+```bash
+sudo ./usertools/dpdk-devbind.py -b uio_pci_generic 0000:01:00.0 # Replace with your ID
+sudo ./usertools/dpdk-devbind.py -b uio_pci_generic 0000:01:00.1 # Replace with your ID
+```
+
+Run DPDK forwarding with 2 cores isolated:
+```bash
+sudo dpdk-testpmd -l 0-3 -n 4 -- -i --nb-cores=2
+
+testpmd> start
+```
