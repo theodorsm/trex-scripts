@@ -1,6 +1,6 @@
 # Setup guide
 
-For various applications like tactile internet, gaming, RTC and critical infrastructure, low and consistent latency and jitter is required in the network. To be able to ensure equipment can deliver the performance required, benchmarks has to be done. Usually expensive hardware traffic generators are used to take these measurements. On the software side, there exist programs like iperf that is commonly used to get some idea of the network performance. The problem with this way of benchmarking is that is way too expensive to afford good and reliable hardware equipment, and the software solution is not accurate enough for the precise task at hand. In this guide a software setup is presented that tries to bridge the gap between a cheap (and open source) software benchmarking setup on general hardware and a dedicated hardware packet generator (pgen).
+For various applications like tactile internet, gaming, RTC and critical infrastructure, low and consistent latency and jitter is required in the network. To be able to ensure equipment can deliver the performance required, benchmarks has to be done. Usually expensive hardware traffic generators are used to take these measurements. On the software side, there exist programs like iperf that is commonly used to get some idea of the network performance. The problem with this way of benchmarking is that is way too expensive to afford good and reliable hardware equipment, and the software solution is not accurate enough for the precise task at hand. In this guide a software setup (using hardware acceleration) is presented that tries to bridge the gap between a cheap (and open source) software benchmarking setup on general hardware and a dedicated hardware packet generator (PGEN).
 
 This guide is for setting up the following topology with two separate computers:
 ```
@@ -48,11 +48,11 @@ sudo pacman -S python-pip base-devel git
 
 ### 2.1 Cisco TRex
 
-For the PGEN side, [Cisco TRex](https://trex-tgn.cisco.com/) is used to generate traffic and taking measurements of latency and jitter. TRex uses the [Data Plane Development Kit](https://www.dpdk.org/) (DPDK) as hardware acceleration to get the most accurate timings and performance out of the computers Network Interface Controller (NIC).
+For the PGEN side, [Cisco TRex](https://trex-tgn.cisco.com/) is used to generate traffic and taking measurements of latency and jitter. TRex uses the [Data Plane Development Kit](https://www.dpdk.org/) (DPDK) as hardware acceleration to get the most accurate timings and performance out of the device's Network Interface Controller (NIC).
 
 For more in-depth documentation checkout the [official TRex documentation](https://trex-tgn.cisco.com/trex/doc/trex_manual.html).
 
-*This guide is based on TRex v2.88 (with version DPDK v21.02)*
+*This guide is based on TRex v2.88 (with DPDK v21.02)*
 
 TRex install:
 
@@ -108,23 +108,23 @@ In this guide two ways of configuring the DUT is presented; stock and with DPDK.
 
 The "stock" DUT is a device running a stable vanilla [Linux kernel](https://www.kernel.org/) and with no form of hardware acceleration. A regular Linux bridge is used to forward traffic "through" the device.
 
-The DPDK DUT is also running a stable vanilla Linux kernel but with hardware acceleration enabled with DPDK.
+The DPDK DUT is also running a stable vanilla Linux kernel but with hardware acceleration enabled with DPDK. Forwarding is handled by `dpdk-testpmd` included in DPDPK, running as a user space application.
 
-Any configuration that manages to forward traffic from portA to portB on the PGEN will work, so the DUT could also be considered as a black-box with a measurable latency and PDV.
+
+Any configuration that manages to forward traffic from portA to portB on the PGEN will work, so the DUT could also be considered as a **black-box** with a measurable latency and PDV.
 
 **Follow ONE of the configurations below (config 1 or 2)**
 
-### Tools and packages
+
+### 3.1 config 1: stock DUT
+
+#### 3.2 Bridging with netplan
 
 Install:
 
 ```bash
 sudo pacman -S netplan
 ```
-
-### 3.1 config 1: stock DUT
-
-#### 3.2 Bridging with netplan
 
 ```yaml
 #/etc/netplan/01-netcfg.yaml
@@ -158,6 +158,12 @@ sysctl -p /etc/sysctl.conf
 #### 3.5: Arp table
 We have to manually create the arp table:
 
+*If using arp (outdated, but works):*
+
+```bash
+sudo pacman -S net-tools
+```
+
 *Modify this script, and run it after each reboot of the system*
 ```bash
 #!/bin/bash
@@ -174,7 +180,7 @@ sudo arp -s 10.0.0.3 <PORTB_MAC> -i br0
 # sudo ip neigh 10.0.0.3 lladdr <PORTB_MAC> dev <YOUR_INTERFACE1>
 # sudo ip neigh 10.0.0.2 lladdr <PORTA_MAC> dev br0
 # sudo ip neigh 10.0.0.3 lladdr <PORTB_MAC> dev br0
-# sudo iptables -A FORWARD -i br0 -o br0 -j ACCEPT
+sudo iptables -A FORWARD -i br0 -o br0 -j ACCEPT
 ```
 
 ### 3.1 config 2: DPDK DUT
