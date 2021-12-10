@@ -28,6 +28,9 @@ RUNS = 4
 
 DUT = "dpdk"
 
+IP_SRC = "10.0.0.2"
+IP_DST = "10.0.0.3"
+
 
 def save_to_file(name, data, date):
     try:
@@ -174,11 +177,11 @@ def stream_iteration(c, stats, pgid, tx_port, rx_port):
 
 if __name__ == "__main__":
 
-    pkt = Ether() / IP(src="10.0.0.2", dst="10.0.0.3") / UDP(dport=12, sport=1025)
+    pkt = Ether() / IP(src=IP_SRC, dst=IP_DST) / UDP(dport=12, sport=1025)
 
     udp_pkt = STLPktBuilder(pkt=pkt / Raw(RandString(size=500 - len(pkt))))
 
-    pkt = Ether() / IP(src="10.0.0.2", dst="10.0.0.3") / TCP(dport=80)
+    pkt = Ether() / IP(src=IP_SRC, dst=IP_DST) / TCP(dport=80)
 
     tcp_pkt = STLPktBuilder(pkt=pkt / Raw(RandString(size=500 - len(pkt))))
 
@@ -238,6 +241,7 @@ if __name__ == "__main__":
     )
 
     for i in range(RUNS):
+        # Comment out any of the rx_stats to disable a traffic stream
         rx_stats(tx_port=0, rx_port=1, duration=DURATION, streams=[UDP_LOW])
         rx_stats(tx_port=0, rx_port=1, duration=DURATION, streams=[UDP_HIGH])
         rx_stats(tx_port=0, rx_port=1, duration=DURATION, streams=[TCP_HIGH])

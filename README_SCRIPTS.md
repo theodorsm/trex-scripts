@@ -67,6 +67,10 @@ In `stl_stats.py` you can adjust the following parameters to your needs:
 - DURATION (default=120): How long each latency measurement should last.
 - RUNS (default=4): How many runs of each measurements.
 - DUT: The name of device under test. (used to store results)
+- IP_SRC: IP of NIC to send traffic
+- IP_DST: IP of NIC to receive traffic
+
+To add/remove any of the traffic flows, comment/uncomment the `rx_stats` in main.
 
 To run the script:
 
