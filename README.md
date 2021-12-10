@@ -7,7 +7,8 @@ This guide is for setting up the following topology with two separate computers:
 FIGURE 1.
 
 PGEN (packet generator)         DUT (Device Under Test)
- .-----------.                      .-----------.  | .-------. |                      | .-------. |
+ .-----------.                      .-----------.
+ | .-------. |                      | .-------. |
  | | portA | | -------------------> | | port0 | |
  | | portB | | <------------------- | | port1 | |
  | '-------' |                      | '-------' |
@@ -21,9 +22,13 @@ The benchmark-setup in this guide is beneficial for network engineers or researc
 
 Check that your hardware is supported on the [official support page](https://core.dpdk.org/supported/cpus/).
 
+**NOTE:** A CPU of at least 4 threads is required, and for best performance ensure each memory channel has at least one memory DIMM inserted (more performance configurations can be found [here](https://doc.dpdk.org/guides/linux_gsg/nic_perf_intel_platform.html)).
+
+*This setup can be done on virtual machines but some extra configuration may have to be done, check the documentation for your virtual host and the other links provided in this guide. ([VM drivers](https://doc.dpdk.org/guides/nics/e1000em.html))*.
+
 ## 1. OS
 
-Any Linux distribution could be used, but Arch was used when creating this guide.
+Any Linux distribution could be used, but Arch was used when creating this guide (RHEL/Fedora is also widely supported).
 Ideally you should have a completely clean system, but it is not required.
 
 For installing Arch follow the [wiki guide](https://wiki.archlinux.org/index.php/installation_guide).
@@ -105,9 +110,9 @@ The "stock" DUT is a device running a stable vanilla [Linux kernel](https://www.
 
 The DPDK DUT is also running a stable vanilla Linux kernel but with hardware acceleration enabled with DPDK.
 
-Any configuration that manages to forward traffic from portA to portB on the PGEN will work, so in the DUT could also be considered as a black-box with a measurable latency and PDV.
+Any configuration that manages to forward traffic from portA to portB on the PGEN will work, so the DUT could also be considered as a black-box with a measurable latency and PDV.
 
-**Follow ONE of the configurations below (1. or 2.)**
+**Follow ONE of the configurations below (config 1 or 2)**
 
 ### Tools and packages
 
@@ -117,7 +122,7 @@ Install:
 sudo pacman -S netplan
 ```
 
-### 3.1 option 1: stock DUT
+### 3.1 config 1: stock DUT
 
 #### 3.2 Bridging with netplan
 
@@ -164,15 +169,15 @@ sudo arp -s 10.0.0.2 <PORTA_MAC> -i <YOUR_INTERFACE0>
 sudo arp -s 10.0.0.3 <PORTB_MAC> -i <YOUR_INTERFACE1>
 sudo arp -s 10.0.0.2 <PORTA_MAC> -i br0
 sudo arp -s 10.0.0.3 <PORTB_MAC> -i br0
-# Not using net-tools:
-sudo ip neigh 10.0.0.2 lladdr <PORTA_MAC> dev <YOUR_INTERFACE0>
-sudo ip neigh 10.0.0.3 lladdr <PORTB_MAC> dev <YOUR_INTERFACE1>
-sudo ip neigh 10.0.0.2 lladdr <PORTA_MAC> dev br0
-sudo ip neigh 10.0.0.3 lladdr <PORTB_MAC> dev br0
-sudo iptables -A FORWARD -i br0 -o br0 -j ACCEPT
+# Not using net-tools: (have not been tested)
+# sudo ip neigh 10.0.0.2 lladdr <PORTA_MAC> dev <YOUR_INTERFACE0>
+# sudo ip neigh 10.0.0.3 lladdr <PORTB_MAC> dev <YOUR_INTERFACE1>
+# sudo ip neigh 10.0.0.2 lladdr <PORTA_MAC> dev br0
+# sudo ip neigh 10.0.0.3 lladdr <PORTB_MAC> dev br0
+# sudo iptables -A FORWARD -i br0 -o br0 -j ACCEPT
 ```
 
-### 3.1 option 2: DPDK DUT
+### 3.1 config 2: DPDK DUT
 
 Install DPDK by following the [official documentation](https://doc.dpdk.org/guides/linux_gsg/sys_reqs.html).
 *v21.08 was used to create this guide*
@@ -186,7 +191,16 @@ cd <DPDK-LOCATION>/dpdk-XX.XX/
 sudo ./usertools/dpdk-hugepages.py -p 1G --setup 2G
 ```
 
-#### 3.2 Bind NICs
+#### 3.3 Isolate CPU cores
+
+Isolate CPU cores to be used by DPDK in the grub configurations:
+
+```
+# add this line to config file (/etc/default/grub) and the cpus to isolate
+GRUB_CMDLINE_LINUX="isolcpus=0,1,2,3"
+```
+
+#### 3.4 Bind NICs
 
 Next, supported DPDK drivers must be bound to the NICs:
 ```bash
@@ -194,7 +208,7 @@ sudo ./usertools/dpdk-devbind.py -b uio_pci_generic 0000:01:00.0 # Replace with 
 sudo ./usertools/dpdk-devbind.py -b uio_pci_generic 0000:01:00.1 # Replace with your ID
 ```
 
-#### 3.3 Start forwarding
+#### 3.5 Start forwarding
 
 Run DPDK forwarding with 2 cores isolated:
 ```bash
