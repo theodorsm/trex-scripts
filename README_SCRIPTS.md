@@ -26,7 +26,8 @@ The following 6 traffic-streams is included:
 
 #### Install TRex
 
-Follow the [TRex install guide](https://trex-tgn.cisco.com/trex/doc/trex_manual.html#_download_and_installation).
+Follow the steps 0-4 in [README.md](https://github.com/theodorsm/trex-scripts/blob/main/README.md).
+
 
 #### Environment
 
