@@ -210,6 +210,7 @@ GRUB_CMDLINE_LINUX="isolcpus=0,1,2,3"
 
 Next, supported DPDK drivers must be bound to the NICs:
 ```bash
+sudo modprobe uio_pci_generic
 sudo ./usertools/dpdk-devbind.py -b uio_pci_generic 0000:01:00.0 # Replace with your ID
 sudo ./usertools/dpdk-devbind.py -b uio_pci_generic 0000:01:00.1 # Replace with your ID
 ```
